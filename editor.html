@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Word 編輯器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar-container {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            max-height: 150px;
+        }
+
+        .toolbar {
+            padding: 8px 15px;
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .toolbar-section {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+            padding: 0 8px;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .toolbar-section:last-child {
+            border-right: none;
+        }
+
+        button, select {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 13px;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        button:hover, select:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+
+        button.active {
+            background: #0066cc;
+            color: #fff;
+            border-color: #0052a3;
+        }
+
+        select {
+            padding: 6px 8px;
+            min-width: 100px;
+        }
+
+        .color-picker {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+
+        .separator {
+            width: 1px;
+            height: 24px;
+            background: #ddd;
+            margin: 0 4px;
+        }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .ruler {
+            background: #f9f9f9;
+            border-right: 1px solid #ddd;
+            width: 60px;
+            padding: 10px 5px;
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+
+        .document-container {
+            flex: 1;
+            background: #f5f5f5;
+            overflow: auto;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #editor {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            line-height: 1.8;
+            font-size: 14px;
+            color: #333;
+            overflow: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            outline: none;
+            position: relative;
+        }
+
+        #editor::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .page-break {
+            page-break-after: always;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px dashed #ddd;
+        }
+
+        .status-bar {
+            background: #f9f9f9;
+            border-top: 1px solid #ddd;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            padding: 8px 0;
+            z-index: 1000;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .dropdown-content button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 8px 15px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 0;
+            transition: background 0.2s;
+        }
+
+        .dropdown-content button:hover {
+            background: #e3f2fd;
+            border: none;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .shortcut-hint {
+            font-size: 11px;
+            color: #999;
+            margin-left: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .modal-body {
+            margin-bottom: 15px;
+        }
+
+        .modal-body label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .modal-body input, .modal-body select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        .modal-footer {
+            text-align: right;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none !important;
+            background: none !important;
+            padding: 0 !important;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        @media print {
+            body, .toolbar-container, .status-bar, .ruler, .document-container {
+                display: none;
+            }
+            #editor {
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                box-shadow: none;
+                background: #fff;
+            }
+        }
+
+        .toc-item {
+            margin-left: 0;
+            margin-bottom: 5px;
+        }
+
+        .toc-item.level-2 { margin-left: 20px; }
+        .toc-item.level-3 { margin-left: 40px; }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        table td, table th {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+
+        table th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 60px;
+            color: rgba(192, 192, 192, 0.1);
+            z-index: 0;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        input[type="text"], input[type="number"] {
+            border: 1px solid #ccc;
+            padding: 6px 8px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar-container">
+        <div class="toolbar">
+            <div class="toolbar-section">
+                <button id="newBtn" title="新建文件">新建</button>
+                <button id="openBtn" title="打開文件">打開</button>
+                <button id="saveBtn" title="保存文件">保存</button>
+                <button id="exportBtn" title="導出為HTML">導出</button>
+                <button id="printBtn" title="打印文件">打印</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="undoBtn" title="撤銷">撤銷</button>
+                <button id="redoBtn" title="重做">重做</button>
+            </div>
+
+            <div class="toolbar-section">
+                <select id="fontFamily" title="選擇字體">
+                    <option>Microsoft YaHei</option>
+                    <option>Arial</option>
+                    <option>Times New Roman</option>
+                    <option>Courier New</option>
+                    <option>Georgia</option>
+                </select>
+                <select id="fontSize" title="選擇字號">
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14" selected>14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="18">18</option>
+                    <option value="20">20</option>
+                    <option value="22">22</option>
+                    <option value="24">24</option>
+                </select>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="boldBtn" title="粗體 (Ctrl+B)">粗</button>
+                <button id="italicBtn" title="斜體 (Ctrl+I)">斜</button>
+                <button id="underlineBtn" title="底線 (Ctrl+U)">線</button>
+                <button id="strikeBtn" title="刪除線">刪</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="superBtn" title="上標">上</button>
+                <button id="subBtn" title="下標">下</button>
+            </div>
+
+            <div class="toolbar-section">
+                <label>文字色:</label>
+                <input type="color" id="textColor" value="#000000" title="文字顏色">
+                <label style="margin-left: 10px;">背景:</label>
+                <input type="color" id="hiliteColor" value="#FFFF00" title="背景顏色">
+            </div>
+
+            <div class="toolbar-section">
+                <button id="leftBtn" title="靠左對齐">左</button>
+                <button id="centerBtn" title="居中對齐">中</button>
+                <button id="rightBtn" title="靠右對齐">右</button>
+                <button id="justifyBtn" title="分散對齐">兩</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="bulletBtn" title="項目符號">符號</button>
+                <button id="numberedBtn" title="編號列表">編號</button>
+                <button id="indentBtn" title="增加縮排">增加</button>
+                <button id="outdentBtn" title="減少縮排">減少</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="linkBtn" title="插入連結">連結</button>
+                <button id="tableBtn" title="插入表格">表格</button>
+                <button id="pageBreakBtn" title="插入分頁符">分頁</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="tocBtn" title="插入目錄">目錄</button>
+                <button id="headerFooterBtn" title="頁首頁尾">頁首/尾</button>
+                <button id="watermarkBtn" title="插入浮水印">浮水</button>
+            </div>
+
+            <div class="toolbar-section">
+                <button id="clearBtn" title="清除格式">清除格式</button>
+                <button id="findBtn" title="查找與替換">查找</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <div class="ruler">
+            <div>尺</div>
+            <div>寸</div>
+        </div>
+        <div class="document-container">
+            <div id="editor" contenteditable="true"></div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <span>準備就緒</span>
+        <span>第 <span id="pageNum">1</span> 頁 | 字數: <span id="wordCount">0</span></span>
+    </div>
+
+    <div id="linkModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('linkModal').style.display='none'">×</span>
+            <div class="modal-header">插入超連結</div>
+            <div class="modal-body">
+                <label>文字:</label>
+                <input type="text" id="linkText" placeholder="連結文字">
+                <label>網址:</label>
+                <input type="text" id="linkUrl" placeholder="https://example.com">
+            </div>
+            <div class="modal-footer">
+                <button id="cancelLinkBtn">取消</button>
+                <button id="confirmLinkBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tableModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('tableModal').style.display='none'">×</span>
+            <div class="modal-header">插入表格</div>
+            <div class="modal-body">
+                <label>列數:</label>
+                <input type="number" id="tableRows" value="3" min="1">
+                <label>行數:</label>
+                <input type="number" id="tableCols" value="3" min="1">
+            </div>
+            <div class="modal-footer">
+                <button id="cancelTableBtn">取消</button>
+                <button id="confirmTableBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="watermarkModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('watermarkModal').style.display='none'">×</span>
+            <div class="modal-header">浮水印設定</div>
+            <div class="modal-body">
+                <label>浮水印文字:</label>
+                <input type="text" id="watermarkText" placeholder="例如: 機密">
+            </div>
+            <div class="modal-footer">
+                <button id="cancelWatermarkBtn">取消</button>
+                <button id="confirmWatermarkBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="findModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('findModal').style.display='none'">×</span>
+            <div class="modal-header">查找與替換</div>
+            <div class="modal-body">
+                <label>查找:</label>
+                <input type="text" id="findText" placeholder="要查找的文字">
+                <label>替換為:</label>
+                <input type="text" id="replaceText" placeholder="要替換的文字">
+            </div>
+            <div class="modal-footer">
+                <button id="findNextBtn">查找下一個</button>
+                <button id="replaceBtn">替換</button>
+                <button id="replaceAllBtn">全部替換</button>
+                <button id="cancelFindBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const boldBtn = document.getElementById('boldBtn');
+        const italicBtn = document.getElementById('italicBtn');
+        const underlineBtn = document.getElementById('underlineBtn');
+        const strikeBtn = document.getElementById('strikeBtn');
+        const superBtn = document.getElementById('superBtn');
+        const subBtn = document.getElementById('subBtn');
+        const fontFamily = document.getElementById('fontFamily');
+        const fontSize = document.getElementById('fontSize');
+        const textColor = document.getElementById('textColor');
+        const hiliteColor = document.getElementById('hiliteColor');
+        const leftBtn = document.getElementById('leftBtn');
+        const centerBtn = document.getElementById('centerBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const justifyBtn = document.getElementById('justifyBtn');
+        const bulletBtn = document.getElementById('bulletBtn');
+        const numberedBtn = document.getElementById('numberedBtn');
+        const indentBtn = document.getElementById('indentBtn');
+        const outdentBtn = document.getElementById('outdentBtn');
+        const linkBtn = document.getElementById('linkBtn');
+        const tableBtn = document.getElementById('tableBtn');
+        const pageBreakBtn = document.getElementById('pageBreakBtn');
+        const tocBtn = document.getElementById('tocBtn');
+        const headerFooterBtn = document.getElementById('headerFooterBtn');
+        const watermarkBtn = document.getElementById('watermarkBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const findBtn = document.getElementById('findBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const printBtn = document.getElementById('printBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const newBtn = document.getElementById('newBtn');
+        const openBtn = document.getElementById('openBtn');
+
+        let history = [''];
+        let historyStep = 0;
+
+        function updateToolbar() {
+            const sel = window.getSelection();
+            if (sel.rangeCount === 0) return;
+
+            const range = sel.getRangeAt(0);
+            const container = range.commonAncestorContainer;
+            const node = container.nodeType === 3 ? container.parentNode : container;
+
+            boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+            italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+            underlineBtn.classList.toggle('active', document.queryCommandState('underline'));
+            strikeBtn.classList.toggle('active', document.queryCommandState('strikethrough'));
+
+            leftBtn.classList.toggle('active', document.queryCommandValue('justifyLeft') === 'true');
+            centerBtn.classList.toggle('active', document.queryCommandValue('justifyCenter') === 'true');
+            rightBtn.classList.toggle('active', document.queryCommandValue('justifyRight') === 'true');
+            justifyBtn.classList.toggle('active', document.queryCommandValue('justifyFull') === 'true');
+        }
+
+        function updateStatus() {
+            const text = editor.innerText || '';
+            const wordCount = text.replace(/\s+/g, '').length;
+            document.getElementById('wordCount').textContent = wordCount;
+            
+            const lines = editor.innerHTML.split('<div>').length;
+            const pages = Math.ceil(lines / 40);
+            document.getElementById('pageNum').textContent = Math.max(1, pages);
+        }
+
+        function saveHistory() {
+            history = history.slice(0, historyStep + 1);
+            history.push(editor.innerHTML);
+            historyStep++;
+        }
+
+        editor.addEventListener('input', () => {
+            saveHistory();
+            updateStatus();
+        });
+
+        editor.addEventListener('mouseup', updateToolbar);
+        editor.addEventListener('keyup', updateToolbar);
+
+        boldBtn.addEventListener('click', () => {
+            document.execCommand('bold');
+            editor.focus();
+            updateToolbar();
+        });
+
+        italicBtn.addEventListener('click', () => {
+            document.execCommand('italic');
+            editor.focus();
+            updateToolbar();
+        });
+
+        underlineBtn.addEventListener('click', () => {
+            document.execCommand('underline');
+            editor.focus();
+            updateToolbar();
+        });
+
+        strikeBtn.addEventListener('click', () => {
+            document.execCommand('strikethrough');
+            editor.focus();
+            updateToolbar();
+        });
+
+        superBtn.addEventListener('click', () => {
+            document.execCommand('superscript');
+            editor.focus();
+        });
+
+        subBtn.addEventListener('click', () => {
+            document.execCommand('subscript');
+            editor.focus();
+        });
+
+        fontFamily.addEventListener('change', () => {
+            document.execCommand('fontName', false, fontFamily.value);
+            editor.focus();
+        });
+
+        fontSize.addEventListener('change', () => {
+            const size = parseInt(fontSize.value);
+            document.execCommand('fontSize', false, size);
+            editor.focus();
+        });
+
+        textColor.addEventListener('change', () => {
+            document.execCommand('foreColor', false, textColor.value);
+            editor.focus();
+        });
+
+        hiliteColor.addEventListener('change', () => {
+            document.execCommand('backColor', false, hiliteColor.value);
+            editor.focus();
+        });
+
+        leftBtn.addEventListener('click', () => {
+            document.execCommand('justifyLeft');
+            editor.focus();
+            updateToolbar();
+        });
+
+        centerBtn.addEventListener('click', () => {
+            document.execCommand('justifyCenter');
+            editor.focus();
+            updateToolbar();
+        });
+
+        rightBtn.addEventListener('click', () => {
+            document.execCommand('justifyRight');
+            editor.focus();
+            updateToolbar();
+        });
+
+        justifyBtn.addEventListener('click', () => {
+            document.execCommand('justifyFull');
+            editor.focus();
+            updateToolbar();
+        });
+
+        bulletBtn.addEventListener('click', () => {
+            document.execCommand('insertUnorderedList');
+            editor.focus();
+        });
+
+        numberedBtn.addEventListener('click', () => {
+            document.execCommand('insertOrderedList');
+            editor.focus();
+        });
+
+        indentBtn.addEventListener('click', () => {
+            document.execCommand('indent');
+            editor.focus();
+        });
+
+        outdentBtn.addEventListener('click', () => {
+            document.execCommand('outdent');
+            editor.focus();
+        });
+
+        linkBtn.addEventListener('click', () => {
+            document.getElementById('linkModal').style.display = 'block';
+            document.getElementById('linkText').value = window.getSelection().toString();
+        });
+
+        document.getElementById('confirmLinkBtn').addEventListener('click', () => {
+            const text = document.getElementById('linkText').value;
+            const url = document.getElementById('linkUrl').value;
+            if (text && url) {
+                document.execCommand('createLink', false, url);
+                document.getElementById('linkModal').style.display = 'none';
+                editor.focus();
+            }
+        });
+
+        document.getElementById('cancelLinkBtn').addEventListener('click', () => {
+            document.getElementById('linkModal').style.display = 'none';
+        });
+
+        tableBtn.addEventListener('click', () => {
+            document.getElementById('tableModal').style.display = 'block';
+        });
+
+        document.getElementById('confirmTableBtn').addEventListener('click', () => {
+            const rows = parseInt(document.getElementById('tableRows').value);
+            const cols = parseInt(document.getElementById('tableCols').value);
+            let table = '<table><tbody>';
+            for (let i = 0; i < rows; i++) {
+                table += '<tr>';
+                for (let j = 0; j < cols; j++) {
+                    table += '<td>單元格</td>';
+                }
+                table += '</tr>';
+            }
+            table += '</tbody></table><br>';
+            document.execCommand('insertHTML', false, table);
+            document.getElementById('tableModal').style.display = 'none';
+            editor.focus();
+        });
+
+        document.getElementById('cancelTableBtn').addEventListener('click', () => {
+            document.getElementById('tableModal').style.display = 'none';
+        });
+
+        pageBreakBtn.addEventListener('click', () => {
+            const pageBreak = document.createElement('div');
+            pageBreak.className = 'page-break';
+            editor.appendChild(pageBreak);
+            editor.focus();
+            saveHistory();
+        });
+
+        tocBtn.addEventListener('click', () => {
+            const headings = editor.querySelectorAll('h1, h2, h3');
+            let toc = '<h1>目錄</h1>';
+            headings.forEach((heading, index) => {
+                const level = parseInt(heading.tagName.substring(1));
+                toc += `<div class="toc-item level-${level}"><a href="#heading-${index}">${heading.innerText}</a></div>`;
+                heading.id = `heading-${index}`;
+            });
+            document.execCommand('insertHTML', false, toc + '<hr>');
+            editor.focus();
+        });
+
+        watermarkBtn.addEventListener('click', () => {
+            document.getElementById('watermarkModal').style.display = 'block';
+        });
+
+        document.getElementById('confirmWatermarkBtn').addEventListener('click', () => {
+            const text = document.getElementById('watermarkText').value;
+            if (text) {
+                const existingWatermark = document.querySelector('.watermark');
+                if (existingWatermark) {
+                    existingWatermark.textContent = text;
+                } else {
+                    const watermark = document.createElement('div');
+                    watermark.className = 'watermark';
+                    watermark.textContent = text;
+                    document.body.appendChild(watermark);
+                }
+                document.getElementById('watermarkModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('cancelWatermarkBtn').addEventListener('click', () => {
+            document.getElementById('watermarkModal').style.display = 'none';
+        });
+
+        clearBtn.addEventListener('click', () => {
+            document.execCommand('removeFormat');
+            editor.focus();
+        });
+
+        findBtn.addEventListener('click', () => {
+            document.getElementById('findModal').style.display = 'block';
+        });
+
+        document.getElementById('cancelFindBtn').addEventListener('click', () => {
+            document.getElementById('findModal').style.display = 'none';
+        });
+
+        document.getElementById('replaceAllBtn').addEventListener('click', () => {
+            const find = document.getElementById('findText').value;
+            const replace = document.getElementById('replaceText').value;
+            if (find) {
+                let text = editor.innerHTML;
+                text = text.replaceAll(find, replace);
+                editor.innerHTML = text;
+            }
+        });
+
+        undoBtn.addEventListener('click', () => {
+            if (historyStep > 0) {
+                historyStep--;
+                editor.innerHTML = history[historyStep];
+                updateStatus();
+            }
+        });
+
+        redoBtn.addEventListener('click', () => {
+            if (historyStep < history.length - 1) {
+                historyStep++;
+                editor.innerHTML = history[historyStep];
+                updateStatus();
+            }
+        });
+
+        printBtn.addEventListener('click', () => {
+            window.print();
+        });
+
+        saveBtn.addEventListener('click', () => {
+            const content = editor.innerHTML;
+            localStorage.setItem('document_content', content);
+            alert('文件已保存到本地存儲');
+        });
+
+        exportBtn.addEventListener('click', () => {
+            const content = editor.innerHTML;
+            const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>導出的文件</title>
+    <style>
+        body { font-family: 'Microsoft YaHei', sans-serif; line-height: 1.8; }
+        div { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'document.html';
+            link.click();
+        });
+
+        openBtn.addEventListener('click', () => {
+            const saved = localStorage.getItem('document_content');
+            if (saved) {
+                editor.innerHTML = saved;
+                updateStatus();
+            } else {
+                alert('沒有已保存的文件');
+            }
+        });
+
+        newBtn.addEventListener('click', () => {
+            if (confirm('確認建立新文件？現有內容將丟失')) {
+                editor.innerHTML = '';
+                history = [''];
+                historyStep = 0;
+                updateStatus();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'b' || e.key === 'B') {
+                    e.preventDefault();
+                    boldBtn.click();
+                }
+                if (e.key === 'i' || e.key === 'I') {
+                    e.preventDefault();
+                    italicBtn.click();
+                }
+                if (e.key === 'u' || e.key === 'U') {
+                    e.preventDefault();
+                    underlineBtn.click();
+                }
+                if (e.key === 's' || e.key === 'S') {
+                    e.preventDefault();
+                    saveBtn.click();
+                }
+                if (e.key === 'z' || e.key === 'Z') {
+                    e.preventDefault();
+                    undoBtn.click();
+                }
+                if (e.key === 'y' || e.key === 'Y') {
+                    e.preventDefault();
+                    redoBtn.click();
+                }
+                if (e.key === 'f' || e.key === 'F') {
+                    e.preventDefault();
+                    findBtn.click();
+                }
+            }
+        });
+
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('document_content');
+            if (saved) {
+                editor.innerHTML = saved;
+            }
+            updateStatus();
+        });
+
+        editor.focus();
+    </script>
+</body>
+</html>
